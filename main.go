@@ -5,20 +5,26 @@ import (
 	"encoding/csv"
 	"flag"
 	"fmt"
+	"math/rand"
 	"os"
 	"strings"
+	"time"
 )
 
 func main() {
 	filePtr := flag.String("filename", "problems.csv", "Name of the CSV file to read")
-	time := flag.Int("timelimit (in seconds)", 30, "Total time allowed to answer all questions")
+	time := flag.Int("limit (in seconds)", 10, "Total time allowed to answer all questions")
+	randomize := flag.Bool("randomize questions", false, "Randomize questions (true or false)")
 	flag.Parse()
 
-	score, numQuestions := startGame(*filePtr)
+	score, numQuestions := runGame(*filePtr, *time, *randomize)
 	fmt.Printf("Game ended. Final score: %d/%d", score, numQuestions)
 }
 
-func startGame(name string) (score int, numQuestions int) {
+func runGame(name string, limit int, randomize bool) (score int, numQuestions int) {
+	timer := time.NewTimer(time.Duration(limit) * time.Second)
+	defer timer.Stop()
+
 	f, err := os.Open(name)
 	if err != nil {
 		fmt.Println("Questions file could not be opened")
@@ -32,22 +38,39 @@ func startGame(name string) (score int, numQuestions int) {
 		return score, len(lines)
 	}
 
+	if randomize {
+		rand.Seed(time.Now().UnixNano())
+		rand.Shuffle(len(lines), func (i, j int) { lines[i], lines[j] = lines[j], lines[i]})
+	}
+
+mainLoop:
 	for _, line := range lines {
-		fmt.Printf("Question: %s", line[0])
-		fmt.Printf("Answer: ")
-		reader := bufio.NewReader(os.Stdin)
-		text, _ := reader.ReadString('\n')
+		fmt.Printf("Question: %s\n", line[0])
 
-		text = strings.TrimSuffix(text, "\n")
+		answers := make(chan string)
 
-		if text == line[1] {
-			score++
-			fmt.Println("Correct answer! ")
-		} else {
-			fmt.Println("Wrong answer! ")
+		go func() {
+			fmt.Printf("Answer: ")
+			reader := bufio.NewReader(os.Stdin)
+			text, _ := reader.ReadString('\n')
+
+			text = strings.TrimSuffix(text, "\n")
+			answers <- text
+		}()
+
+		select {
+		case <-timer.C:
+			fmt.Println("\nTime is up!")
+			break mainLoop
+		case ans := <- answers:
+			if ans == line[1] {
+				score++
+				fmt.Printf("Correct answer! ")
+			} else {
+				fmt.Printf("Wrong answer! ")
+			}
+			fmt.Printf("Score: %d\n", score)
 		}
-
-		fmt.Printf("Score: %d\n", score)
 	}
 
 	return score, len(lines)
