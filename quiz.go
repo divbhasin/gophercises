@@ -13,8 +13,8 @@ import (
 
 func main() {
 	filePtr := flag.String("filename", "problems.csv", "Name of the CSV file to read")
-	time := flag.Int("limit (in seconds)", 10, "Total time allowed to answer all questions")
-	randomize := flag.Bool("randomize questions", false, "Randomize questions (true or false)")
+	time := flag.Int("limit", 10, "Total time (in seconds) allowed to answer all questions")
+	randomize := flag.Bool("randomize", false, "Randomize questions (true or false)")
 	flag.Parse()
 
 	score, numQuestions := runGame(*filePtr, *time, *randomize)
