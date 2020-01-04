@@ -1,6 +1,8 @@
 package URLShort
 
 import (
+	"gopkg.in/yaml.v2"
+	"log"
 	"net/http"
 )
 
@@ -11,8 +13,24 @@ import (
 // If the path is not provided in the map, then the fallback
 // http.Handler will be called instead.
 func MapHandler(pathsToUrls map[string]string, fallback http.Handler) http.HandlerFunc {
-	//	TODO: Implement this...
-	return nil
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.Path
+		if url, ok := pathsToUrls[path]; ok {
+			http.Redirect(w, r, url, 302)
+		} else {
+			fallback.ServeHTTP(w, r)
+		}
+	})
+}
+
+func buildMap(redirs []map[string]string) map[string]string {
+	resMap := make(map[string]string)
+	for _, redirMap := range redirs {
+		key := redirMap["path"]
+		resMap[key] = redirMap["url"]
+	}
+
+	return resMap
 }
 
 // YAMLHandler will parse the provided YAML and then return
@@ -32,6 +50,11 @@ func MapHandler(pathsToUrls map[string]string, fallback http.Handler) http.Handl
 // See MapHandler to create a similar http.HandlerFunc via
 // a mapping of paths to urls.
 func YAMLHandler(yml []byte, fallback http.Handler) (http.HandlerFunc, error) {
-	// TODO: Implement this...
-	return nil, nil
+	var redirs []map[string]string
+	err := yaml.Unmarshal(yml, &redirs)
+	if err != nil {
+		log.Fatal("Unmarshal error: ", err)
+	}
+	pathMap := buildMap(redirs)
+	return MapHandler(pathMap, fallback), nil
 }
